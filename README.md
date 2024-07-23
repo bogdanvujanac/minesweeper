@@ -1,1 +1,1 @@
-minesweeper projekat za fakultet na predmetu standardni korisnicki interfejsi
+Minesweeper projekat za fakultet na predmetu standardni korisnicki interfejsi
