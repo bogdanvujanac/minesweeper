@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOMBICE </title>
+    <style>
+        #okvir {
+            width: 1300px;
+            height: 800px;
+            border: 2px solid red;
+            background-color: #b8a5a5;
+        }
+
+        body {
+            background-color: rgb(220, 220, 48);
+        }
+
+        #tabla {
+            height: 630px;
+            width: 500px;
+            border: 10px groove green;
+            margin-top: 80px;
+            margin-left: 100px;
+            background-color: grey;
+            display: inline-block;
+        }
+
+        #start{
+            position: relative;
+            width: 50px;
+            height: 50px;
+            margin-left: 110px;
+            margin-top: 10px;
+            background-size: cover;
+            border-radius: 10px;
+        }
+
+        #start:active{
+            background-color: black;
+        }
+        #vreme{
+            width: 100px !important;
+            height: 50px !important;
+            margin-left: 20px;
+            margin-top: 10px;
+            border: 2px solid red;
+            font-size: 30px;
+            background-color: wheat;
+            color: red;
+            text-align: center;
+            line-height: 50px;
+            display: inline-block;
+            vertical-align: 10px;
+        }
+
+        #mreza {
+            padding-left: 2px;
+            width: 500px;
+            height: 420px;
+            display: grid;
+            grid-template-columns: repeat(16, 31px); 
+        }
+
+        .grid-item{
+            background-color: rgb(132, 110, 69);
+            border: 2px solid black;
+            font-size: 15px;
+            padding: 0px;
+            margin: 0px;
+            width: 31px;
+            height: 31px;
+            background-size: cover;
+        }
+
+        .grid-item:hover{
+            background-color: blue;
+        }
+
+        #muzika{
+            position: relative;
+            width: 50px;
+            height: 50px;
+            margin-left: 130px;
+            margin-top: 30px;
+            background-size: cover;
+            border-radius: 10px;
+        }
+
+        #zastava{
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #pobedaDiv{
+            position: absolute;
+            display: none;
+            width: 300px;
+            height: 300px;
+            left: 215px;
+            top: 320px;
+        }
+
+        #pobedaDiv img{
+            width: 300px;
+            height: auto;
+            background-size: cover;
+        }
+        
+    </style>
+
+    <script>
+        var sekunde = 0;
+        var myVar;
+        var tabela = [];        // cuva za svako polje tabele broj bombi u okolini ili podatak da je to bomba (B)
+        var stanje = [];        // moguca stanja 0 - zatvoreno; 1 - otvoreno; 2 - zastavica
+        var krajIgre = 0;       // 0 - igra jos traje, 1 - kraj igre
+        var pustenaMuzika = 0;
+        
+        document.addEventListener("DOMContentLoaded", function() { // funkcija koja se izvrsava na pocetku
+
+                kreirajTabelu();
+                dodajTabeluUHtml();
+
+                postaviBombice();
+                postaviBrojeve();
+                    
+                incijalizacija();
+            }
+        );
+
+        function kreirajTabelu(){
+            stanje = [];
+            tabela = [];
+            for (let i = 0; i < 16; i++) {
+                const red = Array(16).fill(0);
+                tabela.push(red);
+
+                const red1 = Array(16).fill(0);
+                stanje.push(red1);
+            }
+        }
+
+        function dodajTabeluUHtml(){
+            // dohvata se elemet mreza i kreira se 16x16 polja (button-a) i njima se pridruzuje dogadjaj click
+
+            const mrezica = document.getElementById("mreza");
+
+            for (let i = 0; i < 16; i++) {
+                for (let j = 0; j < 16; j++) {
+                    const dugmence = document.createElement("button");
+                    dugmence.classList.add("grid-item");
+
+                    dugmence.id = `btn_${i}_${j}`;
+                    dugmence.dataset.row = i;
+                    dugmence.dataset.column = j;
+
+                    dugmence.addEventListener('click', klikNaPolje);
+
+                    mrezica.appendChild(dugmence);
+                }
+            }
+        }
+
+        function postaviBombice(){
+            // postavlja se 40 bombi na random mestima
+
+            var i = 0;
+            while(i < 40){
+                let randomRed = Math.floor(Math.random() * 16);
+                let randomKolona = Math.floor(Math.random() * 16);
+
+                if(tabela[randomRed][randomKolona] !== "B"){
+                    i++;
+                    tabela[randomRed][randomKolona] = "B";
+                }
+            }
+        }
+
+        function postaviBrojeve() {
+            // u zavisnosti gde su bombe, dodeljuju se vrednosti ostalim poljima
+
+            for (let i = 0; i < 16; i++) {
+                for (let j = 0; j < 16; j++) {
+                    if (tabela[i][j] !== "B") {
+                        // Ako nije bomba, postavi broj koji predstavlja broj bombi u okolini
+                        const brojBombi = brojBombiUOkolini(i, j);
+                        tabela[i][j] = brojBombi;
+                    }
+                }
+            }
+        }
+
+
+        function incijalizacija(){
+            var btnSmajli = document.getElementById("start")
+            btnSmajli.style.backgroundImage = 'url("smajli.jpg")'   // postavljanje slike na button start
+            btnSmajli.addEventListener('click', resetujIgru);       // dodeljivanje event-a click button-u start
+
+            const dugmeMuzika = document.getElementById("muzika");
+            dugmeMuzika.addEventListener('click', pustiMuziku);     // postavljanje slike na button muzika
+            dugmeMuzika.style.backgroundImage = 'url("pusti.png")'  // dodeljivanje event-a click button-u muzika
+        }
+
+        function resetujIgru() {
+            
+            clearInterval(myVar);
+            sekunde = 0;
+            
+            document.getElementById("vreme").innerHTML = sekunde;
+
+            krajIgre = 0
+
+            kreirajTabelu();
+            resetujTabelu();
+
+            postaviBombice();
+            postaviBrojeve();
+
+            document.getElementById("pobedaDiv").style.display="none"
+        }
+
+
+        function resetujTabelu(){
+            // resetovanje izgleda tabele
+
+            for (let i = 0; i < 16; i++) {
+                for (let j = 0; j < 16; j++){
+                    let celija = document.getElementById(`btn_${i}_${j}`);
+                    celija.style.backgroundColor = 'rgb(132, 110, 69)';
+                    celija.textContent = ''
+                    celija.style.backgroundImage = ''
+                }
+            }
+
+            var btnSmajli = document.getElementById("start")
+            btnSmajli.style.backgroundImage = 'url("smajli.jpg")'
+        }
+
+
+        function pustiMuziku(event){
+            var audioPlayer = document.getElementById("audioPlayer");
+            var dugmeMuzika = document.getElementById("muzika")
+            
+            if(pustenaMuzika === 0){
+                audioPlayer.play();
+                pustenaMuzika = 1;
+                dugmeMuzika.style.backgroundImage = 'url("stani.png")'
+            }
+            else{
+                audioPlayer.pause();
+                pustenaMuzika = 0;
+                dugmeMuzika.style.backgroundImage = 'url("pusti.png")'
+            }
+        }
+
+
+        function brojBombiUOkolini(red, kolona) {
+            const susedi = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0,  -1],          [0,  1],
+                [1,  -1], [1,  0], [1,  1]
+            ];
+
+            let brojBombi = 0;
+
+            susedi.forEach(sused => {
+                const susedRed = red + sused[0];
+                const susedKolona = kolona + sused[1];
+
+                if (susedRed >= 0 && susedRed < 16 && susedKolona >= 0 && susedKolona < 16) {
+                    if (tabela[susedRed][susedKolona] === "B") {
+                        brojBombi++;
+                    }
+                }
+            });
+
+            return brojBombi;
+        }
+
+        function klikNaPolje(event){
+
+            if(krajIgre === 1)
+                return;
+
+            pokreniTajmer();
+
+            if (event.ctrlKey) {
+                staviZastavicu(event);
+            }
+            else{
+                otvoriPolje(event);
+            }
+        }
+
+        function pokreniTajmer() {
+            if (!sekunde) {
+                myVar = setInterval(function () {
+                    tajmer();
+                }, 1000);
+            }
+        }
+
+        function staviZastavicu(event) {
+            const celija = event.target;
+
+            const red = parseInt(celija.dataset.row);
+            const kolona = parseInt(celija.dataset.column);
+            
+            if(stanje[red][kolona] === 1) // ukoliko je polje otvoreno -> nista
+                return;
+            
+            else if(stanje[red][kolona] === 2){ // ukoliko je na polju zastavica -> skidamo je
+                celija.style.backgroundImage = ''
+                stanje[red][kolona] = 0;
+            }
+            else if(stanje[red][kolona] === 0){ // postavljamo zastavicu ako polje nije otvoreno
+                //celija.innerHTML = '<img src="zastavica.jpg" alt="Zastavica" id="zastava">'
+                celija.style.backgroundImage = 'url("zastavaaa.png")'
+                stanje[red][kolona] = 2;
+            }
+            
+        }
+
+
+        function otvoriPolje(event){
+
+            const celija = event.target;
+            const red = parseInt(celija.dataset.row);
+            const kolona = parseInt(celija.dataset.column);
+
+            // ako je polje vec otvoreno -> nista
+            // ako je na polju zastavica -> ne moze da se otvori -> nista
+            if(stanje[red][kolona] === 1 || stanje[red][kolona] === 2)
+                return;
+            // u suprotnom, otvara se polje
+
+            var vrednost = tabela[red][kolona]
+
+            // Ako je ovo bomba, igra se završava
+            if(vrednost === "B"){
+                console.log("Game Over! Kliknuli ste na bombu.");
+                prikaziSveBombice();
+                clearInterval(myVar)
+                krajIgre = 1
+                var btnSmajli = document.getElementById("start")
+                btnSmajli.style.backgroundImage = 'url("tuzan.jpg")'
+            }
+            else {
+                // otvori celiju i prikazi broj ili prazninu
+                if (vrednost > 0) {
+                    celija.textContent = vrednost;
+                    
+                } else {
+                    // celija.textContent = "P"
+                    // ako je celija prazna, otvori okolna polja
+                    otvoriPrazneCelije(red, kolona);
+                }
+
+                stanje[red][kolona] = 1;
+                celija.style.backgroundColor = 'gray';
+
+                //if(brojOtvorenihPolja == 16*16-40){
+                if(brojPolja() === 1){
+                    // pobeda
+                    console.log("Pobeda")
+                    for(let i=0; i<16; i++)
+                        for(let j=0; j<16; j++)
+                            stanje[i][j] = 1;
+
+                    document.getElementById("pobedaDiv").style.display="block"
+                    clearInterval(myVar)
+                }
+            }
+
+        }
+
+        function prikaziSveBombice(){
+            for(let i=0; i<16; i++){
+                for(let j=0; j<16; j++){
+
+                    if(tabela[i][j] === "B"){
+                        var celija = document.getElementById(`btn_${i}_${j}`);
+                        celija.style.backgroundColor = 'red'
+                        celija.style.backgroundImage = 'url("b2.png")'
+                    }
+                    stanje[i][j] = 2;
+                }
+            }
+        }
+
+        function otvoriPrazneCelije(red, kolona) {
+
+            if (red < 0 || red >= 16 || kolona < 0 || kolona >= 16) 
+                return;
+
+            const susedi = [
+                [-1, -1], [-1, 0], [-1, 1],
+                [0,  -1],          [0,  1],
+                [1,  -1], [1,  0], [1,  1]
+            ];
+
+
+            susedi.forEach(sused => {
+                const susedRed = red + sused[0];
+                const susedKolona = kolona + sused[1];
+
+                //console.log(susedRed)
+
+                if (susedRed >= 0 && susedRed < 16 && susedKolona >= 0 && susedKolona < 16) {
+
+                    if(stanje[susedRed][susedKolona] === 0){
+                        stanje[susedRed][susedKolona] = 1;
+                        //brojOtvorenihPolja++;
+                        celija = document.getElementById(`btn_${susedRed}_${susedKolona}`);
+                        
+                        var vrednost = tabela[susedRed][susedKolona]
+                        if(vrednost > 0)
+                            celija.textContent = vrednost;
+                        
+                        celija.style.backgroundColor = 'gray';
+
+                        if(vrednost === 0){
+                            otvoriPrazneCelije(susedRed, susedKolona);
+                        }  
+                    }
+
+                }
+            });
+        }
+
+        function brojPolja() {
+            let tmp = 0;
+            for(let i=0; i<16; i++){
+                for(let j=0; j<16; j++){
+                    if(stanje[i][j] === 1){
+                        tmp++;
+                    }
+                }
+            }
+            if(tmp === 16*16 - 40)
+                return 1;
+            else   
+                return 5;
+        }
+
+        function tajmer() {
+            document.getElementById("vreme").innerHTML = sekunde;
+            sekunde++;
+        }
+
+        function punEkran(){
+            var okvir=document.getElementById("okvir").requestFullscreen(); 
+        }
+
+    </script>
+</head>
+
+<body>
+    <section id="application">
+        
+    <div id="okvir">
+
+        
+        <div id="tabla">
+            <div id="vrh">
+                <p id="vreme">0</p>
+                <button id="start"></button> 
+                <button id="muzika"></button>
+                <audio id="audioPlayer" loop>
+                    <source src="bogota.mp3" type="audio/mp3">
+                </audio>
+            </div>
+            <hr>
+
+            
+            <div id="mreza">
+            </div>
+            
+        </div>
+
+        <div id="pobedaDiv">
+            <img src="pobeda.png" alt="pobeda">
+        </div>
+
+    </div>
+
+    </section>
+</body>
+
+</html>
+
+                
